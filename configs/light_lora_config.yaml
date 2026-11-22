@@ -1,80 +1,39 @@
-# SAM3 LoRA Training Configuration - LIGHT VERSION
-# Lighter LoRA configuration for memory-constrained training
-# Use this for faster iteration and lower memory usage
-
-# Model settings
 model:
-  name: "facebook/sam3"
-  cache_dir: null
-
-# LoRA settings - REDUCED for memory efficiency
+  checkpoint_path: weights/sam3.pt
+  allow_download: false
 lora:
-  rank: 16                   # Reduced from 32 (less capacity but faster)
-  alpha: 32                  # 2x rank
+  rank: 16
+  alpha: 32
   dropout: 0.1
-
-  # Target ONLY attention layers (skip MLP for memory savings)
   target_modules:
-    - "q_proj"
-    - "k_proj"
-    - "v_proj"
-    - "out_proj"
-    # NOT including fc1/fc2 - saves memory
-
-  # Apply LoRA to FEWER components (memory optimization)
-  apply_to_vision_encoder: false   # Skip vision encoder (pre-trained features work well)
-  apply_to_text_encoder: false     # FROZEN: adapting it erodes prompt discrimination
-  apply_to_geometry_encoder: false # Skip geometry encoder
-  apply_to_detr_encoder: true      # Keep DETR encoder (core detection)
-  apply_to_detr_decoder: true      # Keep DETR decoder (core detection)
-  apply_to_mask_decoder: true      # Keep mask decoder (final segmentation)
-
-# Training settings
+  - q_proj
+  - k_proj
+  - v_proj
+  - out_proj
+  apply_to_vision_encoder: false
+  apply_to_text_encoder: false
+  apply_to_geometry_encoder: false
+  apply_to_detr_encoder: true
+  apply_to_detr_decoder: true
+  apply_to_mask_decoder: true
 training:
-  data_dir: "/workspace/data2"
-  # Hard-negative prompts (must return nothing). Dataset categories absent from
-  # an image are ALWAYS added as negatives; num_negatives controls only the
-  # extra generic out-of-domain prompts sampled per image (0 disables them).
+  data_dir: data
   num_negatives: 3
-  # generic_negatives: ["car", "person", "dog"]  # Optional: replace the built-in
-  #   out-of-domain negative pool if a default concept can appear in your images.
-  #   (Pool entries sharing a word with a dataset category are auto-removed.)
-  batch_size: 2         # Larger than full config (fewer LoRA params)
+  batch_size: 2
   num_workers: 2
-
-  learning_rate: 1e-4        # Higher LR for lighter model
+  learning_rate: 1e-4
   weight_decay: 0.01
   adam_beta1: 0.9
   adam_beta2: 0.999
   adam_epsilon: 1e-8
   max_grad_norm: 1.0
-
   num_epochs: 100
   warmup_steps: 200
-  lr_scheduler: "cosine"
-
-  logging_steps: 10
-  eval_steps: 100
-  save_steps: 100
-  save_total_limit: 5
-
-  mixed_precision: "bf16"
+  lr_scheduler: cosine
+  mixed_precision: bf16
   seed: 42
-  gradient_accumulation_steps: 8  # Effective batch = 2 × 8 = 16
-
+  gradient_accumulation_steps: 8
 output:
-  output_dir: "outputs/sam3_lora_light"
-  logging_dir: "logs"
-  save_lora_only: true
-  push_to_hub: false
-  hub_model_id: null
-
-evaluation:
-  metric: "iou"
-  save_predictions: false
-  compute_metrics_during_training: true
-
+  output_dir: outputs/sam3_lora_light
 hardware:
-  device: "cuda"
-  dataloader_pin_memory: true
-  use_compile: false
+  find_unused_parameters: true

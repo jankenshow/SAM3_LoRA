@@ -72,3 +72,18 @@ Thumbs.db
 *.tmp
 *.temp
 .hf_home/
+.ruff_cache/
+!docs/developer/*.json
+
+# External datasets are downloaded locally, never bundled with the project.
+/examples/datasets/*
+!/examples/datasets/README.md
+
+# Local credentials and private keys
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx

@@ -1,125 +1,45 @@
-# SAM3 LoRA Training Configuration
-# Base configuration with conservative settings
-
-# Model settings
 model:
-  name: "facebook/sam3"
-  cache_dir: null  # Optional: specify cache directory for model downloads
-
-# LoRA settings
+  checkpoint_path: weights/sam3.pt
+  allow_download: false
 lora:
-  rank: 8                    # Rank of LoRA matrices (higher = more capacity, more parameters)
-  alpha: 16                  # Scaling factor (typically 2x rank)
-  dropout: 0.0               # Dropout for LoRA layers
-
-  # Target modules - which linear layers to apply LoRA to
+  rank: 8
+  alpha: 16
+  dropout: 0.0
   target_modules:
-    - "q_proj"               # Query projection in attention
-    - "k_proj"               # Key projection in attention
-    - "v_proj"               # Value projection in attention
-    - "out_proj"             # Output projection in attention
-
-  # Component-level control - apply LoRA to specific SAM3 components
-  apply_to_vision_encoder: true      # 32-layer ViT backbone (1008x1008 images)
-  apply_to_text_encoder: false       # FROZEN: adapting it erodes prompt discrimination
-  apply_to_geometry_encoder: false   # Geometry encoder (3 layers, for bbox prompts)
-  apply_to_detr_encoder: true        # DETR encoder (6 layers, vision-text fusion)
-  apply_to_detr_decoder: true        # DETR decoder (6 layers, 200 object queries)
-  apply_to_mask_decoder: false       # Mask decoder (3 upsampling stages)
-
-# Training settings
+  - q_proj
+  - k_proj
+  - v_proj
+  - out_proj
+  - qkv
+  apply_to_vision_encoder: true
+  apply_to_text_encoder: false
+  apply_to_geometry_encoder: false
+  apply_to_detr_encoder: true
+  apply_to_detr_decoder: true
+  apply_to_mask_decoder: false
 training:
-  # Data
-  train_data_path: "/workspace/sam3_lora/data/train"
-  val_data_path: "/workspace/sam3_lora/data/valid"
-  # Absent dataset categories are ALWAYS added as negatives; num_negatives
-  # controls only the extra generic prompts sampled per image (0 disables).
   num_negatives: 3
-  # generic_negatives: ["car", "person", "dog"]  # Optional: replace the built-in
-  #   out-of-domain negative pool. Set this if a default concept (car, person,
-  #   dog, cat, tree, building, sky, road, ...) can actually appear in your
-  #   images — e.g. drop 'road' for pavement-crack datasets.
-
-  # ---------------------------------------------------------------------
-  # Data format and text prompts
-  # ---------------------------------------------------------------------
-  # "coco" (default) reads <data_dir>/<split>/_annotations.coco.json.
-  # "odvg" reads <data_dir>/<split>/_annotations.odvg.jsonl (Grounding-DINO
-  #   ODVG: one JSON object per line, a phrase per region). Convert an existing
-  #   COCO export with:  python3 convert_coco_to_odvg.py --data-dir <data_dir>
-  data_format: "coco"
-
-  # --- coco format only ---
-  # Where the text prompt comes from. "auto" takes the first available of:
-  #   annotation["caption"|"description"|"text"]   per SEGMENT
-  #   image["caption"|"description"]               per IMAGE
-  #   category["description"|"caption"]            per CLASS (RF100-VL style)
-  #   category["name"]                             class name
-  # Descriptions can also live in a _descriptions.json sidecar next to the
-  # annotations, so a Roboflow re-export never overwrites them.
-  # Force one level with: caption | image_caption | category_description
-  # Restore the pre-description behavior with: category_name
-  prompt_source: "auto"
-  # Also emit the plain class-name query alongside the description, so the tuned
-  # model answers to both "crack" and "long diagonal crack near the ledge".
-  # Roughly doubles the queries per image.
+  data_format: coco
+  prompt_source: auto
   mix_class_prompt: false
-
-  # --- odvg format only ---
-  # Emit an extra whole-image query for grounding.caption targeting every region
-  # it grounds, on top of the per-region phrase queries.
   use_full_caption: true
-  # odvg_annotations_file: "_annotations.odvg.jsonl"
-
-  # In-domain negatives sampled per image once the prompt corpus exceeds 50
-  # distinct texts (what happens with per-segment descriptions). Below that
-  # threshold every absent prompt is used, as before.
   num_cross_negatives: 2
-  batch_size: 20
-  num_workers: 4
-
-  # Optimization
+  batch_size: 1
+  num_workers: 0
   learning_rate: 1e-4
   weight_decay: 0.01
   adam_beta1: 0.9
   adam_beta2: 0.999
   adam_epsilon: 1e-8
-  max_grad_norm: 1.0         # Gradient clipping
-
-  # Schedule
-  num_epochs: 200
-  warmup_steps: 500
-  lr_scheduler: "cosine"     # Options: cosine, linear, constant
-
-  # Logging
-  logging_steps: 10
-  eval_steps: 500
-  save_steps: 1000
-  save_total_limit: 3        # Keep only best 3 checkpoints
-
-  # Mixed precision
-  mixed_precision: "fp16"    # Options: no, fp16, bf16
-
-  # Other
+  max_grad_norm: 1.0
+  num_epochs: 10
+  warmup_steps: 0
+  lr_scheduler: cosine
+  mixed_precision: 'no'
   seed: 42
   gradient_accumulation_steps: 1
-
-# Output settings
+  data_dir: data
 output:
-  output_dir: "outputs/sam3_lora"
-  logging_dir: "logs"
-  save_lora_only: true       # Save only LoRA weights (lightweight)
-  push_to_hub: false
-  hub_model_id: null
-
-# Evaluation settings
-evaluation:
-  metric: "iou"              # IoU (Intersection over Union) for segmentation
-  save_predictions: false
-  compute_metrics_during_training: true
-
-# Hardware settings
+  output_dir: outputs/sam3_lora
 hardware:
-  device: "cuda"             # cuda or cpu
-  dataloader_pin_memory: true
-  use_compile: false         # torch.compile (requires PyTorch 2.0+)
+  find_unused_parameters: true

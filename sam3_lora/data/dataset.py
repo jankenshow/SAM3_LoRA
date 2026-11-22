@@ -1,200 +1,206 @@
-"""
-Dataset and DataLoader utilities for SAM3 LoRA fine-tuning.
-
-This module provides dataset classes compatible with the SAM3 training pipeline.
-"""
+"""COCO and ODVG loaders share prompt grouping, geometry and negative policy."""
 
 import json
-import os
-from typing import Any, Callable, Dict, List, Optional, Tuple
+import random
+from collections import defaultdict
+from pathlib import Path
 
-import torch
 from PIL import Image
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
+
+from .paths import image_path
+from .prompts import (
+    DEFAULT_GENERIC_NEGATIVES,
+    NegativePromptPolicy,
+    PromptResolver,
+    first_text,
+    load_descriptions_sidecar,
+)
+from .records import Instance, PromptQuery, Sample
+from .transforms import decode_segmentation, image_tensor, xywh_to_normalized
 
 
-class LoRASAM3Dataset(Dataset):
-    """
-    Dataset for SAM3 LoRA fine-tuning using COCO format annotations.
-
-    Args:
-        img_folder: Path to image folder
-        ann_file: Path to COCO format annotation file
-        transforms: Optional transforms to apply
-        max_ann_per_img: Maximum annotations per image
-    """
-
+class COCOSegmentDataset(Dataset):
     def __init__(
         self,
-        img_folder: str,
-        ann_file: str,
-        transforms: Optional[Callable] = None,
-        max_ann_per_img: int = 200,
+        data_dir,
+        split="train",
+        num_negatives=2,
+        generic_negatives=None,
+        prompt_source="auto",
+        mix_class_prompt=False,
+        num_cross_negatives=2,
+        resolution=1008,
+        seed=42,
+        include_negatives=True,
+        *,
+        document=None,
     ):
-        self.img_folder = img_folder
-        self.ann_file = ann_file
-        self.transforms = transforms
-        self.max_ann_per_img = max_ann_per_img
+        self.split_dir = Path(data_dir) / split if split else Path(data_dir)
+        self.coco_data = (
+            document
+            if document is not None
+            else json.loads((self.split_dir / "_annotations.coco.json").read_text())
+        )
+        self.images = {x["id"]: x for x in self.coco_data["images"]}
+        if len(self.images) != len(self.coco_data["images"]):
+            raise ValueError("Duplicate COCO image IDs")
+        self.image_ids = sorted(self.images)
+        self.category_defs = {x["id"]: x for x in self.coco_data["categories"]}
+        self.categories = {k: v["name"] for k, v in self.category_defs.items()}
+        self.img_to_anns = defaultdict(list)
+        self.resolver = PromptResolver(prompt_source, load_descriptions_sidecar(self.split_dir))
+        self.mix_class_prompt, self.resolution, self.seed = mix_class_prompt, resolution, seed
+        self.include_negatives = include_negatives
+        self.policy = NegativePromptPolicy(num_negatives, num_cross_negatives)
+        self.full_captions = {}
+        corpus = set()
+        for ann in self.coco_data["annotations"]:
+            if ann["image_id"] not in self.images or ann["category_id"] not in self.categories:
+                raise ValueError(f"Annotation {ann.get('id')} references an unknown image/category")
+            self.img_to_anns[ann["image_id"]].append(ann)
+            corpus.add(
+                self.resolver.resolve(
+                    ann, self.images[ann["image_id"]], self.category_defs[ann["category_id"]]
+                )
+            )
+            if mix_class_prompt:
+                corpus.add(self.categories[ann["category_id"]].lower())
+        self.prompt_corpus = sorted(corpus)
+        self.generic_negatives = tuple(
+            DEFAULT_GENERIC_NEGATIVES if generic_negatives is None else generic_negatives
+        )
 
-        # Load annotations
-        self.data = self._load_annotations()
+    def __len__(self):
+        return len(self.image_ids)
 
-    def _load_annotations(self) -> List[Dict[str, Any]]:
-        """Load and parse COCO format annotations."""
-        with open(self.ann_file, "r") as f:
-            coco_data = json.load(f)
+    def __getitem__(self, index):
+        source_id = self.image_ids[index]
+        info = self.images[source_id]
+        path = image_path(self.split_dir, info["file_name"])
+        with Image.open(path) as opened:
+            image = opened.convert("RGB")
+        width, height = image.size
+        if (info.get("width", width), info.get("height", height)) != (width, height):
+            raise ValueError(f"Annotation dimensions disagree with image: {path}")
+        objects, grouped = [], defaultdict(list)
+        for ann in self.img_to_anns[source_id]:
+            # Reject invalid masks/boxes instead of silently shifting label/object alignment.
+            bbox = xywh_to_normalized(ann["bbox"], width, height)
+            mask = decode_segmentation(ann.get("segmentation"), height, width, self.resolution)
+            obj = Instance(len(objects), bbox, mask)
+            objects.append(obj)
+            category = self.category_defs[ann["category_id"]]
+            text = self.resolver.resolve(ann, info, category)
+            grouped[text].append(obj.object_id)
+            if self.mix_class_prompt and category["name"].lower() != text:
+                grouped[category["name"].lower()].append(obj.object_id)
+        if self.full_captions.get(source_id) and objects:
+            grouped.setdefault(self.full_captions[source_id].lower(), list(range(len(objects))))
+        queries = [PromptQuery(text, tuple(ids)) for text, ids in grouped.items()]
+        if not queries:
+            queries = [PromptQuery("object", (), True)]
+        if self.include_negatives:
+            queries += self.policy.queries(
+                grouped,
+                self.prompt_corpus,
+                self.generic_negatives,
+                rng=random.Random(self.seed + index) if self.seed is not None else random,
+            )
+        return Sample(
+            image_tensor(image, self.resolution),
+            tuple(objects),
+            tuple(queries),
+            index,
+            source_id,
+            (height, width),
+            path,
+        )
 
-        # Build image id to annotations mapping
-        img_to_anns = {}
-        for ann in coco_data["annotations"]:
-            img_id = ann.get("image_id", ann.get("id"))
-            if img_id not in img_to_anns:
-                img_to_anns[img_id] = []
-            img_to_anns[img_id].append(ann)
 
-        # Build dataset
-        data = []
-        for img_info in coco_data["images"]:
-            img_id = img_info.get("id", img_info.get("image_id"))
-            anns = img_to_anns.get(img_id, [])
-
-            # Skip images with no annotations
-            if len(anns) == 0:
-                continue
-
-            # Limit annotations per image
-            if len(anns) > self.max_ann_per_img:
-                anns = anns[: self.max_ann_per_img]
-
-            data.append(
+class ODVGDataset(COCOSegmentDataset):
+    def __init__(
+        self,
+        data_dir,
+        split="train",
+        use_full_caption=True,
+        annotations_file="_annotations.odvg.jsonl",
+        **kwargs,
+    ):
+        directory = Path(data_dir) / split if split else Path(data_dir)
+        records = [
+            json.loads(line)
+            for line in (directory / annotations_file).read_text().splitlines()
+            if line.strip()
+        ]
+        document = {"images": [], "annotations": [], "categories": []}
+        categories, captions = {}, {}
+        for index, record in enumerate(records):
+            document["images"].append(
                 {
-                    "image": img_info,
-                    "annotations": anns,
+                    "id": index,
+                    "file_name": record["filename"],
+                    "height": record["height"],
+                    "width": record["width"],
                 }
             )
-
-        return data
-
-    def __len__(self) -> int:
-        return len(self.data)
-
-    def __getitem__(self, idx: int) -> Dict[str, Any]:
-        """
-        Get a single data sample.
-
-        Returns:
-            Dictionary containing:
-                - image: PIL Image or tensor (after transforms)
-                - annotations: List of annotation dicts
-                - image_info: Image metadata
-        """
-        item = self.data[idx]
-
-        # Load image
-        img_path = os.path.join(self.img_folder, item["image"]["file_name"])
-        image = Image.open(img_path).convert("RGB")
-
-        # Prepare sample
-        sample = {
-            "image": image,
-            "annotations": item["annotations"],
-            "image_info": item["image"],
-        }
-
-        # Apply transforms if provided
-        if self.transforms is not None:
-            sample = self.transforms(sample)
-
-        return sample
+            grounding = record.get("grounding") or {}
+            regions = grounding.get("regions") or (record.get("detection") or {}).get(
+                "instances", []
+            )
+            for region in regions:
+                phrase = first_text(region, ("phrase", "caption", "category", "text"))
+                if not phrase:
+                    raise ValueError(f"ODVG record {index}: region has no phrase/category")
+                category = categories.setdefault(phrase, len(categories))
+                x0, y0, x1, y1 = region["bbox"]
+                document["annotations"].append(
+                    {
+                        "id": len(document["annotations"]),
+                        "image_id": index,
+                        "category_id": category,
+                        "caption": phrase,
+                        "bbox": [x0, y0, x1 - x0, y1 - y0],
+                        "segmentation": region.get("segmentation") or region.get("mask"),
+                    }
+                )
+            if use_full_caption and grounding.get("caption"):
+                captions[index] = grounding["caption"]
+        document["categories"] = [{"id": i, "name": name} for name, i in categories.items()]
+        super().__init__(data_dir, split, document=document, **kwargs)
+        self.full_captions = captions
+        self.prompt_corpus = sorted(
+            set(self.prompt_corpus) | {s.lower() for s in captions.values()}
+        )
 
 
-def collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """
-    Collate function for batching samples.
-
-    Args:
-        batch: List of samples from dataset
-
-    Returns:
-        Batched data
-    """
-    # Stack images if they're tensors
-    if isinstance(batch[0]["image"], torch.Tensor):
-        images = torch.stack([item["image"] for item in batch])
-    else:
-        images = [item["image"] for item in batch]
-
-    return {
-        "images": images,
-        "annotations": [item["annotations"] for item in batch],
-        "image_info": [item["image_info"] for item in batch],
+def build_dataset(config, data_dir, split):
+    t = config["training"]
+    options = {
+        key: t[key]
+        for key in (
+            "num_negatives",
+            "generic_negatives",
+            "prompt_source",
+            "mix_class_prompt",
+            "num_cross_negatives",
+            "resolution",
+            "seed",
+        )
+        if key in t
     }
-
-
-def create_dataloaders(
-    train_img_folder: str,
-    train_ann_file: str,
-    val_img_folder: str,
-    val_ann_file: str,
-    batch_size: int = 1,
-    num_workers: int = 4,
-    pin_memory: bool = True,
-    train_transforms: Optional[Callable] = None,
-    val_transforms: Optional[Callable] = None,
-    max_ann_per_img: int = 200,
-) -> Tuple[DataLoader, DataLoader]:
-    """
-    Create training and validation dataloaders.
-
-    Args:
-        train_img_folder: Path to training images
-        train_ann_file: Path to training annotations
-        val_img_folder: Path to validation images
-        val_ann_file: Path to validation annotations
-        batch_size: Batch size
-        num_workers: Number of data loading workers
-        pin_memory: Whether to pin memory
-        train_transforms: Training transforms
-        val_transforms: Validation transforms
-        max_ann_per_img: Maximum annotations per image
-
-    Returns:
-        Tuple of (train_dataloader, val_dataloader)
-    """
-    # Create datasets
-    train_dataset = LoRASAM3Dataset(
-        img_folder=train_img_folder,
-        ann_file=train_ann_file,
-        transforms=train_transforms,
-        max_ann_per_img=max_ann_per_img,
-    )
-
-    val_dataset = LoRASAM3Dataset(
-        img_folder=val_img_folder,
-        ann_file=val_ann_file,
-        transforms=val_transforms,
-        max_ann_per_img=max_ann_per_img,
-    )
-
-    # Create dataloaders
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        collate_fn=collate_fn,
-        drop_last=True,
-    )
-
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        collate_fn=collate_fn,
-        drop_last=False,
-    )
-
-    return train_loader, val_loader
+    # Training samples fresh negatives; validation remains reproducible.
+    if split == "train":
+        options["seed"] = None
+    kind = t.get("data_format", "coco").lower()
+    if kind == "coco":
+        return COCOSegmentDataset(data_dir, split, **options)
+    if kind == "odvg":
+        return ODVGDataset(
+            data_dir,
+            split,
+            use_full_caption=t.get("use_full_caption", True),
+            annotations_file=t.get("odvg_annotations_file", "_annotations.odvg.jsonl"),
+            **options,
+        )
+    raise ValueError(f"Unknown data_format: {kind}")

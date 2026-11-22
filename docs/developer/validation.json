@@ -1,0 +1,95 @@
+{
+  "date": "2026-11-22",
+  "project": "src/SAM3_LoRA",
+  "python": "3.12.2",
+  "unit_tests": {
+    "runner": "../sam3_pytroch/.venv/bin/python -m unittest discover -s tests -v",
+    "passed": 54,
+    "test_body_seconds": 1.775,
+    "hardware": "CPU only",
+    "real_sam3_model_constructed": false,
+    "weights_downloaded": false
+  },
+  "static_checks": {
+    "ruff_check": "PASS",
+    "ruff_format_check": "PASS",
+    "files": 66
+  },
+  "packaging": {
+    "wheel": "sam3_lora-0.4.0-py3-none-any.whl",
+    "built": true,
+    "bpe_included": true,
+    "experiments_excluded": true,
+    "tests_excluded": true,
+    "wheel_help": true,
+    "wheel_dry_run": true,
+    "console_help": true,
+    "heavy_imports_blocked": true,
+    "tools_excluded": true,
+    "wheel_artifact_relative_to_workspace": "tmp/sam3_lora_refactor/publication_cleanup/dist/sam3_lora-0.4.0-py3-none-any.whl",
+    "wheel_built_from_sdist": true,
+    "bpe_resolved_without_source_checkout": true,
+    "sam_license_included_and_identical": true,
+    "examples_media_and_zip_excluded": true
+  },
+  "source_integrity": {
+    "vendor_files_checked": 176,
+    "vendor_content_changes": [],
+    "upstream_commit": "757bbb0206a0b68bee81b17d7eb4877177025b2f",
+    "layout": "Official submodule; package under vendor/sam3/sam3; assets under vendor/sam3/assets"
+  },
+  "git_operations_performed": true,
+  "not_executed": [
+    "Actual SAM3 training/inference/evaluation",
+    "CUDA AMP",
+    "Multi-GPU training/resume",
+    "Full real dataset validation",
+    "Accuracy/performance/memory benchmarking"
+  ],
+  "logs_relative_to_workspace": "tmp/sam3_lora_refactor/",
+  "tools": {
+    "location": "tools/",
+    "command_wrappers": 8,
+    "direct_script_help": true,
+    "module_help": true,
+    "dry_run_from_other_directory": true,
+    "heavy_imports_blocked_in_dry_run": true
+  },
+  "compatibility_cleanup": {
+    "removed": [
+      "dataset_formats.py",
+      "lora_layers.py"
+    ],
+    "experimental_files_imports_updated": 5,
+    "remaining_imports_of_removed_modules": 0,
+    "python_files_syntax_checked": 110,
+    "real_experimental_models_executed": false
+  },
+  "submodule": {
+    "url": "https://github.com/facebookresearch/sam3.git",
+    "path": "vendor/sam3",
+    "commit": "757bbb0206a0b68bee81b17d7eb4877177025b2f",
+    "previous_files_identical": 176,
+    "previous_file_mismatches": [],
+    "commit_or_push_performed": false,
+    "working_tree_clean": true,
+    "parent_index_changed_paths": [
+      ".gitmodules",
+      "vendor/sam3"
+    ],
+    "unrelated_index_entries_changed": false
+  },
+  "publication_cleanup": {
+    "dataset_zip_removed_from_repository": true,
+    "dataset_download_guide": "examples/datasets/README.md",
+    "deleted_directories": [
+      "docs/assets",
+      "docs/archive"
+    ],
+    "removed_mismatched_dataset_readmes": true,
+    "upstream_attribution_and_changes_documented": true,
+    "sam_license_in_distribution": true,
+    "original_lora_license_declaration": "Apache 2.0 in upstream README; LICENSE file missing at original commit",
+    "history_rewritten": false
+  }
+}

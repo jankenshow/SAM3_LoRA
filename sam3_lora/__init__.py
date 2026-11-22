@@ -1,19 +1,11 @@
-"""
-SAM3 LoRA - Standalone LoRA Fine-tuning for Segment Anything Model 3
+"""SAM3 LoRA workflows. Importing the package never builds a model."""
 
-This is a standalone implementation that doesn't require SAM3 installation.
-"""
+__version__ = "0.4.0"
 
-__version__ = "0.2.0"
 
-from .lora import LoRALayer, LinearWithLoRA, LoRAConfig, inject_lora_into_model
-from .data import LoRASAM3Dataset, create_dataloaders
+def __getattr__(name):
+    if name in {"LoRAConfig", "LoRALayer", "LoRALinear", "apply_lora_to_model"}:
+        from importlib import import_module
 
-__all__ = [
-    "LoRALayer",
-    "LinearWithLoRA",
-    "LoRAConfig",
-    "inject_lora_into_model",
-    "LoRASAM3Dataset",
-    "create_dataloaders",
-]
+        return getattr(import_module(".adapters", __name__), name)
+    raise AttributeError(name)

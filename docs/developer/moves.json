@@ -1,0 +1,198 @@
+[
+  {
+    "from": "sam3",
+    "to": "vendor/sam3"
+  },
+  {
+    "from": "src",
+    "to": "expt/prototypes/src"
+  },
+  {
+    "from": "sam3_lora_configs",
+    "to": "expt/prototypes/sam3_lora_configs"
+  },
+  {
+    "from": "sam3_lora/lora",
+    "to": "expt/prototypes/sam3_lora/lora"
+  },
+  {
+    "from": "sam3_lora/train",
+    "to": "expt/prototypes/sam3_lora/train"
+  },
+  {
+    "from": "sam3_lora/model",
+    "to": "expt/prototypes/sam3_lora/model"
+  },
+  {
+    "from": "sam3_lora/data/__init__.py",
+    "to": "expt/prototypes/original_data_init.py"
+  },
+  {
+    "from": "CLI_TRAINING_GUIDE.md",
+    "to": "docs/archive/CLI_TRAINING_GUIDE.md"
+  },
+  {
+    "from": "LORA_IMPLEMENTATION_GUIDE.md",
+    "to": "docs/archive/LORA_IMPLEMENTATION_GUIDE.md"
+  },
+  {
+    "from": "PROJECT_STRUCTURE.txt",
+    "to": "docs/archive/PROJECT_STRUCTURE.txt"
+  },
+  {
+    "from": "PROJECT_SUMMARY.md",
+    "to": "docs/archive/PROJECT_SUMMARY.md"
+  },
+  {
+    "from": "QUICK_SUMMARY.md",
+    "to": "docs/archive/QUICK_SUMMARY.md"
+  },
+  {
+    "from": "README_INFERENCE.md",
+    "to": "docs/archive/README_INFERENCE.md"
+  },
+  {
+    "from": "README_LORA_IMPLEMENTATION.md",
+    "to": "docs/archive/README_LORA_IMPLEMENTATION.md"
+  },
+  {
+    "from": "diagnose_training.md",
+    "to": "docs/archive/diagnose_training.md"
+  },
+  {
+    "from": "README.md",
+    "to": "docs/archive/README.upstream.md"
+  },
+  {
+    "from": "Machinery.zip",
+    "to": "examples/datasets/Machinery.zip"
+  },
+  {
+    "from": "README.dataset.txt",
+    "to": "examples/datasets/README.dataset.txt"
+  },
+  {
+    "from": "README.roboflow.txt",
+    "to": "examples/datasets/README.roboflow.txt"
+  },
+  {
+    "from": "asset",
+    "to": "docs/assets"
+  },
+  {
+    "from": "train.py",
+    "to": "expt/training/train.py"
+  },
+  {
+    "from": "train_native.py",
+    "to": "expt/training/train_native.py"
+  },
+  {
+    "from": "train_sam3_lora.py",
+    "to": "expt/training/train_sam3_lora.py"
+  },
+  {
+    "from": "train_sam3_lora_with_categories.py",
+    "to": "expt/training/train_sam3_lora_with_categories.py"
+  },
+  {
+    "from": "train_simple.py",
+    "to": "expt/training/train_simple.py"
+  },
+  {
+    "from": "train_standalone.py",
+    "to": "expt/training/train_standalone.py"
+  },
+  {
+    "from": "inference.py",
+    "to": "expt/legacy/inference.py"
+  },
+  {
+    "from": "compare_lora_base.py",
+    "to": "expt/legacy/compare_lora_base.py"
+  },
+  {
+    "from": "compare_lora_base_batch.py",
+    "to": "expt/legacy/compare_lora_base_batch.py"
+  },
+  {
+    "from": "prepare_data.py",
+    "to": "expt/legacy/prepare_data.py"
+  },
+  {
+    "from": "prepare_data_split.py",
+    "to": "expt/legacy/prepare_data_split.py"
+  },
+  {
+    "from": "analyze_loss.py",
+    "to": "expt/diagnostics/analyze_loss.py"
+  },
+  {
+    "from": "check_text_encoding.py",
+    "to": "expt/diagnostics/check_text_encoding.py"
+  },
+  {
+    "from": "test_aux_outputs.py",
+    "to": "expt/diagnostics/test_aux_outputs.py"
+  },
+  {
+    "from": "test_lora_injection.py",
+    "to": "expt/diagnostics/test_lora_injection.py"
+  },
+  {
+    "from": "verify_gt_transforms.py",
+    "to": "expt/diagnostics/verify_gt_transforms.py"
+  },
+  {
+    "from": "quick_start.sh",
+    "to": "expt/launchers/quick_start.sh"
+  },
+  {
+    "from": "quickstart.sh",
+    "to": "expt/launchers/quickstart.sh"
+  },
+  {
+    "from": "run_5_image_comparison.sh",
+    "to": "expt/launchers/run_5_image_comparison.sh"
+  },
+  {
+    "from": "loral.yaml",
+    "to": "expt/launchers/loral.yaml"
+  },
+  {
+    "from": "configs/sam3_lora_standalone.yaml",
+    "to": "expt/prototypes/configs/sam3_lora_standalone.yaml"
+  },
+  {
+    "from": "train_sam3_lora_native.py",
+    "to": "tools/train_sam3_lora_native.py"
+  },
+  {
+    "from": "infer_sam.py",
+    "to": "tools/infer_sam.py"
+  },
+  {
+    "from": "inference_lora.py",
+    "to": "tools/inference_lora.py"
+  },
+  {
+    "from": "validate_sam3_lora.py",
+    "to": "tools/validate_sam3_lora.py"
+  },
+  {
+    "from": "merge_lora_weights.py",
+    "to": "tools/merge_lora_weights.py"
+  },
+  {
+    "from": "convert_coco_to_odvg.py",
+    "to": "tools/convert_coco_to_odvg.py"
+  },
+  {
+    "from": "convert_refcoco_to_coco.py",
+    "to": "tools/convert_refcoco_to_coco.py"
+  },
+  {
+    "from": "convert_roboflow_to_coco.py",
+    "to": "tools/convert_roboflow_to_coco.py"
+  }
+]
