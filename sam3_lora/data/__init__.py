@@ -1,3 +1,1 @@
-from .dataset import LoRASAM3Dataset, create_dataloaders
-
-__all__ = ["LoRASAM3Dataset", "create_dataloaders"]
+"""Dataset contracts and loaders. No SAM3 import occurs here."""

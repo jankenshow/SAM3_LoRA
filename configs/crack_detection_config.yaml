@@ -1,90 +1,54 @@
-# SAM3 LoRA Configuration for Crack Detection
-# This config enables text encoder training for better text prompt support
-
-# Model settings
 model:
-  name: "facebook/sam3"
-  cache_dir: null
-
-# LoRA settings
+  checkpoint_path: weights/sam3.pt
+  allow_download: false
 lora:
-  rank: 16                    # Higher rank for better adaptation
-  alpha: 32                   # 2x rank
+  rank: 16
+  alpha: 32
   dropout: 0.1
-
-  # Target modules
   target_modules:
-    - "q_proj"
-    - "k_proj"
-    - "v_proj"
-    - "out_proj"
-    - "fc1"
-    - "fc2"
-
-  # IMPORTANT: keep the text encoder FROZEN. Adapting it distorts SAM3's
-  # open-vocabulary text<->image alignment, which is what lets the model tell
-  # 'crack' apart from 'car'. Training it is a major cause of the model
-  # detecting target objects regardless of the prompt.
-  apply_to_vision_encoder: true     # For visual features
-  apply_to_text_encoder: false      # FROZEN - preserves prompt discrimination
+  - q_proj
+  - k_proj
+  - v_proj
+  - out_proj
+  - fc1
+  - fc2
+  - qkv
+  apply_to_vision_encoder: true
+  apply_to_text_encoder: false
   apply_to_geometry_encoder: false
   apply_to_detr_encoder: false
   apply_to_detr_decoder: false
-  apply_to_mask_decoder: true       # For mask generation
-
-# Training settings
+  apply_to_mask_decoder: true
 training:
-  train_data_path: "data/train"
-  val_data_path: "data/valid"
-  batch_size: 1                # Start small
+  batch_size: 1
   num_workers: 4
-
-  # Hard-negative text queries added per image (prompts that must return
-  # NOTHING). This is the main fix for the model firing on every prompt.
-  # Dataset categories absent from an image are ALWAYS added as negatives;
-  # num_negatives controls only the extra generic out-of-domain prompts
-  # sampled per image (0 disables them; 2-4 works well).
   num_negatives: 3
-
-  # Crack images are photos OF roads/pavement, so scene-level concepts from the
-  # default pool ('road', 'building', ...) could be genuinely present. Use a
-  # pool of objects that never appear in your images:
-  generic_negatives: ["car", "person", "dog", "cat", "bicycle", "bird",
-                      "bottle", "phone", "chair", "table", "flower"]
-
-  learning_rate: 1e-4          # Higher LR to start
+  generic_negatives:
+  - car
+  - person
+  - dog
+  - cat
+  - bicycle
+  - bird
+  - bottle
+  - phone
+  - chair
+  - table
+  - flower
+  learning_rate: 1e-4
   weight_decay: 0.01
   adam_beta1: 0.9
   adam_beta2: 0.999
   adam_epsilon: 1e-8
   max_grad_norm: 1.0
-
-  num_epochs: 50                # More epochs
+  num_epochs: 50
   warmup_steps: 100
-  lr_scheduler: "cosine"
-
-  logging_steps: 10
-  eval_steps: 200
-  save_steps: 500
-  save_total_limit: 3
-
-  mixed_precision: "bf16"
+  lr_scheduler: cosine
+  mixed_precision: bf16
   seed: 42
   gradient_accumulation_steps: 2
-
+  data_dir: data
 output:
-  output_dir: "outputs/crack_detection_lora"
-  logging_dir: "logs/crack_detection"
-  save_lora_only: true
-  push_to_hub: false
-  hub_model_id: null
-
-evaluation:
-  metric: "iou"
-  save_predictions: false
-  compute_metrics_during_training: true
-
+  output_dir: outputs/crack_detection_lora
 hardware:
-  device: "cuda"
-  dataloader_pin_memory: true
-  use_compile: false
+  find_unused_parameters: true

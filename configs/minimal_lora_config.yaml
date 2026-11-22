@@ -1,75 +1,38 @@
-# SAM3 LoRA Training Configuration
-# Minimal LoRA configuration - applies LoRA only to decoder components
-# Use this for efficient fine-tuning with minimal trainable parameters
-
-# Model settings
 model:
-  name: "facebook/sam3"
-  cache_dir: null
-
-# LoRA settings
+  checkpoint_path: weights/sam3.pt
+  allow_download: false
 lora:
-  rank: 4                    # Low rank for efficiency
-  alpha: 8                   # 2x rank
+  rank: 4
+  alpha: 8
   dropout: 0.0
-
-  # Target only attention projections (not MLP)
   target_modules:
-    - "q_proj"
-    - "k_proj"
-    - "v_proj"
-
-  # Apply LoRA ONLY to decoder components (keep encoders frozen)
-  apply_to_vision_encoder: false   # Keep vision encoder frozen
-  apply_to_text_encoder: false     # Keep text encoder frozen
-  apply_to_geometry_encoder: false # Keep geometry encoder frozen
-  apply_to_detr_encoder: false     # Keep DETR encoder frozen
-  apply_to_detr_decoder: true      # Only adapt DETR decoder
-  apply_to_mask_decoder: false     # Keep mask decoder frozen
-
-# Training settings
+  - q_proj
+  - k_proj
+  - v_proj
+  apply_to_vision_encoder: false
+  apply_to_text_encoder: false
+  apply_to_geometry_encoder: false
+  apply_to_detr_encoder: false
+  apply_to_detr_decoder: true
+  apply_to_mask_decoder: false
 training:
-  train_data_path: "data/train"
-  val_data_path: "data/val"
-  num_negatives: 3   # Hard-negative prompts/image (must return nothing); 0 disables.
-  # generic_negatives: ["car", "person", "dog"]  # Optional: replace the built-in
-  #   out-of-domain negative pool if a default concept can appear in your images.
-  batch_size: 8              # Larger batch possible with fewer params
+  num_negatives: 3
+  batch_size: 8
   num_workers: 4
-
-  learning_rate: 2e-4        # Higher LR for smaller model
+  learning_rate: 2e-4
   weight_decay: 0.01
   adam_beta1: 0.9
   adam_beta2: 0.999
   adam_epsilon: 1e-8
   max_grad_norm: 1.0
-
-  num_epochs: 5              # Fewer epochs needed
+  num_epochs: 5
   warmup_steps: 100
-  lr_scheduler: "cosine"
-
-  logging_steps: 10
-  eval_steps: 250
-  save_steps: 500
-  save_total_limit: 2
-
-  mixed_precision: "fp16"
+  lr_scheduler: cosine
+  mixed_precision: fp16
   seed: 42
   gradient_accumulation_steps: 1
-
+  data_dir: data
 output:
-  output_dir: "outputs/sam3_lora_minimal"
-  logging_dir: "logs"
-  save_lora_only: true
-  push_to_hub: false
-  hub_model_id: null
-
-evaluation:
-  metric: "iou"
-  save_predictions: false
-  compute_metrics_during_training: true
-
+  output_dir: outputs/sam3_lora_minimal
 hardware:
-  device: "cuda"
-  dataloader_pin_memory: true
-  use_compile: false
+  find_unused_parameters: true
